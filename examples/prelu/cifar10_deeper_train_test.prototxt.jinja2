@@ -1,0 +1,150 @@
+name: "CIFAR10_deeper"
+layer {
+  name: "cifar"
+  type: "Data"
+  top: "data"
+  top: "label"
+  data_param {
+    source: "examples/cifar10/cifar10_train_lmdb"
+    batch_size: 100
+    backend: LMDB
+  }
+  transform_param {
+    mean_file: "examples/cifar10/mean.binaryproto"
+  }
+  include: { phase: TRAIN }
+}
+layer {
+  name: "cifar"
+  type: "Data"
+  top: "data"
+  top: "label"
+  data_param {
+    source: "examples/cifar10/cifar10_test_lmdb"
+    batch_size: 100
+    backend: LMDB
+  }
+  transform_param {
+    mean_file: "examples/cifar10/mean.binaryproto"
+  }
+  include: { phase: TEST }
+}
+{% macro conv_unit(bottom, prefix, kernel=3, channels=32, pad=1, stride=1,
+  group=1, a=0.25, channel_shared=false, pool_kernel=2, pool_stride=2)
+%}
+layer {
+  name: "{{prefix}}"
+  type: "Convolution"
+  bottom: "{{bottom}}"
+  top: "{{prefix}}"
+  convolution_param {
+    num_output: {{channels}}
+    pad: {{pad}}
+    kernel_size: {{kernel}}
+    stride: {{stride}}
+    group: {{group}}
+    weight_filler {
+      type: "gaussian"
+      std: {{(2.0 / ((1 + a**2) * (kernel**2) * channels))**0.5}}
+    }
+  }
+}
+layer {
+  name: "{{prefix}}_nolin1"
+  type: "PReLU"
+  bottom: "{{prefix}}"
+  top: "{{prefix}}"
+  prelu_param {
+    init_value: {{a}}
+    channel_shared: {%if channel_shared %}true{%else%}false{%endif%}
+  }
+}
+layer {
+  name: "{{prefix}}_2"
+  type: "Convolution"
+  bottom: "{{prefix}}"
+  top: "{{prefix}}_2"
+  convolution_param {
+    num_output: {{channels}}
+    pad: {{pad}}
+    kernel_size: {{kernel}}
+    stride: {{stride}}
+    group: {{group}}
+    weight_filler {
+      type: "gaussian"
+      std: {{(2.0 / ((1 + a**2) * (kernel**2) * channels))**0.5}}
+    }
+  }
+}
+layer {
+  name: "{{prefix}}_nolin2"
+  type: "PReLU"
+  bottom: "{{prefix}}_2"
+  top: "{{prefix}}_2"
+  prelu_param {
+    init_value: {{a}}
+    channel_shared: {%if channel_shared %}true{%else%}false{%endif%}
+  }
+}
+{% if not (pool_kernel==1 and pool_stride==1) %}
+layer {
+  name: "{{prefix}}_pool"
+  type: "Pooling"
+  bottom: "{{prefix}}_2"
+  top: "{{prefix}}_pool"
+  pooling_param {
+    pool: MAX
+    kernel_size: {{pool_kernel}}
+    stride: {{pool_stride}}
+  }
+}
+{% endif %}
+{% endmacro %}
+{% macro fc_unit(bottom, prefix, num=256, std=0.01, no_nonlin=false) %}
+layer {
+  name: "{{prefix}}"
+  type: "InnerProduct"
+  bottom: "{{bottom}}"
+  top: "{{prefix}}"
+  inner_product_param {
+    num_output: {{num}}
+    weight_filler {
+      type: "gaussian"
+      std: {{std}}
+    }
+  }
+}
+{% if not no_nonlin %}
+layer {
+  name: "{{prefix}}_nolin"
+  type: "PReLU"
+  bottom: "{{prefix}}"
+  top: "{{prefix}}"
+}
+{% endif %}
+{% endmacro %}
+{{conv_unit('data', 'conv1', channels=32)}}{#out16#}
+{{conv_unit('conv1_pool', 'conv2', channels=64,
+  pool_kernel=1, pool_stride=1)}}{#out16#}
+{{conv_unit('conv2_2', 'conv3', channels=128,
+  pool_kernel=1, pool_stride=1)}}{#out16#}
+{{conv_unit('conv3_2', 'conv4', channels=256)}}{#out8#}
+{{conv_unit('conv4_pool', 'conv5', channels=256)}}{#out4#}
+{{fc_unit('conv5_pool', 'ip1', num=256)}}
+{{fc_unit('ip1', 'ip2', num=256)}}
+{{fc_unit('ip2', 'ip_fin', num=10, std=0.001, no_nonlin=true)}}
+layer {
+  name: "accuracy"
+  type: "Accuracy"
+  bottom: "ip_fin"
+  bottom: "label"
+  top: "accuracy"
+  include: { phase: TEST }
+}
+layer {
+  name: "loss"
+  type: "SoftmaxWithLoss"
+  bottom: "ip_fin"
+  bottom: "label"
+  top: "loss"
+}

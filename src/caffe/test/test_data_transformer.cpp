@@ -191,6 +191,24 @@ TYPED_TEST(DataTransformTest, TestCropTest) {
   EXPECT_EQ(num_matches, size * this->num_iter_);
 }
 
+TYPED_TEST(DataTransformTest, TestCropForceCenter) {
+  TransformationParameter transform_param;
+  const bool unique_pixels = true;  // pixels are consecutive ints [0,size]
+  const int label = 0;
+  const int channels = 3;
+  const int height = 4;
+  const int width = 5;
+  const int crop_size = 2;
+  const int size = channels * crop_size * crop_size;
+
+  transform_param.set_crop_size(crop_size);
+  transform_param.set_force_center_crop(true);
+  Datum datum;
+  FillDatum(label, channels, height, width, unique_pixels, &datum);
+  int num_matches = this->NumSequenceMatches(transform_param, datum, TRAIN);
+  EXPECT_EQ(num_matches, size * this->num_iter_);
+}
+
 TYPED_TEST(DataTransformTest, TestMirrorTrain) {
   TransformationParameter transform_param;
   const bool unique_pixels = true;  // pixels are consecutive ints [0,size]

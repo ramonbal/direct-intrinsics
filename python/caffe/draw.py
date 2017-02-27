@@ -6,8 +6,8 @@ since it requires graphviz and other prerequisites outside the scope of the
 Caffe.
 """
 
+from collections import OrderedDict
 from caffe.proto import caffe_pb2
-from google.protobuf import text_format
 import pydot
 
 # Internal layer and blob styles.
@@ -100,11 +100,20 @@ def choose_color_by_layertype(layertype):
         color = '#CC33FF'
     return color
 
+def get_param_color(pind):
+  """Define colors for edges of shared parameters 
+  """
+  color_list = ['#F49AC2', '#77DD77', '#779ECB',
+  '#AEC6CF', '#DEA5A4', '#CFCFC4']
+  if pind >= 6:
+    return 'gray'
+  return color_list[pind]
 
-def get_pydot_graph(caffe_net, rankdir, label_edges=True):
+def get_pydot_graph(caffe_net, rankdir, label_edges=True, param_edges=True):
   pydot_graph = pydot.Dot(caffe_net.name, graph_type='digraph', rankdir=rankdir)
   pydot_nodes = {}
   pydot_edges = []
+  params = OrderedDict()
   for layer in caffe_net.layer:
     name = layer.name
     layertype = layer.type
@@ -136,6 +145,15 @@ def get_pydot_graph(caffe_net, rankdir, label_edges=True):
       pydot_edges.append({'src': name + '_' + layertype,
                           'dst': top_blob + '_blob',
                           'label': edge_label})
+    # Check sharing params
+    for pind, param in enumerate(layer.param):
+      layer_name = name + '_' + layertype
+      param_name = param.name
+      if not param_name:
+        continue
+      layer_list = params.get(param_name, []) + [(layer_name, pind)]
+      params[param_name] = layer_list
+
   # Now, add the nodes and edges to the graph.
   for node in pydot_nodes.values():
     pydot_graph.add_node(node)
@@ -143,9 +161,23 @@ def get_pydot_graph(caffe_net, rankdir, label_edges=True):
     pydot_graph.add_edge(
         pydot.Edge(pydot_nodes[edge['src']], pydot_nodes[edge['dst']],
                    label=edge['label']))
+  # Connect shared params with edges
+  if param_edges:
+    params = filter(lambda x: len(x[1])>1, params.items())
+    for pname, layers in params:
+      for lid in xrange(1, len(layers)):
+        pydot_graph.add_edge(
+          pydot.Edge(
+            pydot_nodes[layers[lid-1][0]], pydot_nodes[layers[lid][0]],
+            dir='none', splines='curved', constraint='false',
+            color=';'.join(
+              map(get_param_color, (layers[lid-1][1], layers[lid][1]))
+              ),
+            )
+          )
   return pydot_graph
 
-def draw_net(caffe_net, rankdir, ext='png'):
+def draw_net(caffe_net, rankdir, ext='png', param_edges=True):
   """Draws a caffe net and returns the image string encoded using the given
   extension.
 
@@ -153,7 +185,8 @@ def draw_net(caffe_net, rankdir, ext='png'):
     caffe_net: a caffe.proto.caffe_pb2.NetParameter protocol buffer.
     ext: the image extension. Default 'png'.
   """
-  return get_pydot_graph(caffe_net, rankdir).create(format=ext)
+  return get_pydot_graph(caffe_net, rankdir,
+    param_edges=param_edges).create(format=ext)
 
 def draw_net_to_file(caffe_net, filename, rankdir='LR'):
   """Draws a caffe net, and saves it to file using the format given as the

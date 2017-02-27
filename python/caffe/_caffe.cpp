@@ -460,7 +460,11 @@ BOOST_PYTHON_MODULE(_caffe) {
 
   bp::class_<SGDSolver<Dtype>, bp::bases<Solver<Dtype> >,
     shared_ptr<SGDSolver<Dtype> >, boost::noncopyable>(
-        "SGDSolver", bp::init<string>());
+        "SGDSolver", bp::init<string>())
+    .add_property("learning_rate",
+          &SGDSolver<Dtype>::GetLearningRate,
+          &SGDSolver<Dtype>::SetLearningRate);
+
   bp::class_<NesterovSolver<Dtype>, bp::bases<Solver<Dtype> >,
     shared_ptr<NesterovSolver<Dtype> >, boost::noncopyable>(
         "NesterovSolver", bp::init<string>());
@@ -486,6 +490,8 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def(bp::vector_indexing_suite<vector<shared_ptr<Net<Dtype> > >, true>());
   bp::class_<vector<bool> >("BoolVec")
     .def(bp::vector_indexing_suite<vector<bool> >());
+  bp::class_<vector<float> >("FloatVec")
+      .def(bp::vector_indexing_suite<vector<float> >());
 
   // boost python expects a void (missing) return value, while import_array
   // returns NULL for python3. import_array1() forces a void return value.

@@ -26,7 +26,7 @@ class Solver {
   // in a non-zero iter number to resume training for a pre-trained net.
   virtual void Solve(const char* resume_file = NULL);
   inline void Solve(const string resume_file) { Solve(resume_file.c_str()); }
-  void Step(int iters);
+  vector<Dtype> Step(int iters);
   // The Restore function implements how one should restore the solver to a
   // previously snapshotted state. You should implement the RestoreSolverState()
   // function that restores the state from a SolverState protocol buffer.
@@ -76,10 +76,11 @@ class SGDSolver : public Solver<Dtype> {
       : Solver<Dtype>(param_file) { PreSolve(); }
 
   const vector<shared_ptr<Blob<Dtype> > >& history() { return history_; }
+  Dtype GetLearningRate();
+  void SetLearningRate(Dtype lr);
 
  protected:
   void PreSolve();
-  Dtype GetLearningRate();
   virtual void ComputeUpdateValue();
   virtual void ClipGradients();
   virtual void SnapshotSolverState(SolverState * state);

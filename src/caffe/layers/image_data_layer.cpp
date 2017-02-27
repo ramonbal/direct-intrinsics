@@ -44,7 +44,10 @@ void ImageDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   if (this->layer_param_.image_data_param().shuffle()) {
     // randomly shuffle data
     LOG(INFO) << "Shuffling data";
-    const unsigned int prefetch_rng_seed = caffe_rng_rand();
+    unsigned int prefetch_rng_seed = caffe_rng_rand();
+    if (this->layer_param_.image_data_param().has_rand_seed()) {
+      prefetch_rng_seed = this->layer_param_.image_data_param().rand_seed();
+    }
     prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
     ShuffleImages();
   }

@@ -165,6 +165,9 @@ message SolverParameter {
   // leads to much memory consumptions.
   optional bool share_blobs = 14756 [default = false];
 
+  // Force momentum history computation in CPU in order to save memory
+  optional bool force_cpu_momentum = 25832 [default = false];
+
   optional int32 snapshot = 14 [default = 0]; // The snapshot interval
   optional string snapshot_prefix = 15; // The prefix for the snapshot.
   // whether to snapshot diff in the results or not. Snapshotting diff will help
@@ -339,6 +342,8 @@ message LayerParameter {
   optional TanHParameter tanh_param = 127;
   optional ThresholdParameter threshold_param = 128;
   optional WindowDataParameter window_data_param = 129;
+  
+  optional SliceMapParameter slice_map_param = 86313;
 }
 
 // Message that stores parameters used to apply transformation
@@ -358,6 +363,8 @@ message TransformationParameter {
   // or can be repeated the same number of times as channels
   // (would subtract them from the corresponding channel)
   repeated float mean_value = 5;
+  // force to crop in center even in training phase
+  optional bool force_center_crop = 123 [default = false];
 }
 
 // Message that stores parameters shared by loss layers
@@ -559,6 +566,8 @@ message ImageDataParameter {
   optional string source = 1;
   // Specify the batch size.
   optional uint32 batch_size = 4;
+  // Random seed
+  optional uint32 rand_seed = 112;
   // The rand_skip variable is for the data layer to skip a few data points
   // to avoid all asynchronous sgd clients to start at the same point. The skip
   // point would be set as rand_skip * rand(0,1). Note that rand_skip should not
@@ -720,6 +729,14 @@ message SliceParameter {
 
   // DEPRECATED: alias for "axis" -- does not support negative indexing.
   optional uint32 slice_dim = 1 [default = 1];
+}
+
+// Message that stores parameters used by SliceMapLayer
+message SliceMapParameter {
+  optional int32 y_begin = 1 [default = 0];
+  optional int32 y_end = 2 [default = -1];
+  optional int32 x_begin = 3 [default = 0];
+  optional int32 x_end = 4 [default = -1];
 }
 
 // Message that stores parameters used by SoftmaxLayer, SoftmaxWithLossLayer

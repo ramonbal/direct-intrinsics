@@ -1,0 +1,258 @@
+{% set strprelu = '' %}
+{% set strinit = '' %}
+{% if fprelu %}{% set strprelu = '_prelu' %} {%endif%}
+{% if finit %}{% set strinit = '_init' %} {%endif%}
+
+name: "{{"CIFAR10%s%s_quick"|format(strprelu, strinit)}}"
+layer {
+  name: "cifar"
+  type: "Data"
+  top: "data"
+  top: "label"
+  data_param {
+    source: "examples/cifar10/cifar10_train_lmdb"
+    batch_size: 100
+    backend: LMDB
+  }
+  transform_param {
+    mean_file: "examples/cifar10/mean.binaryproto"
+  }
+  include: { phase: TRAIN }
+}
+layer {
+  name: "cifar"
+  type: "Data"
+  top: "data"
+  top: "label"
+  data_param {
+    source: "examples/cifar10/cifar10_test_lmdb"
+    batch_size: 100
+    backend: LMDB
+  }
+  transform_param {
+    mean_file: "examples/cifar10/mean.binaryproto"
+  }
+  include: { phase: TEST }
+}
+layer {
+  name: "conv1"
+  type: "Convolution"
+  bottom: "data"
+  top: "conv1"
+  {% if not (fprelu or finit) %}
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  {% endif %}
+  convolution_param {
+    num_output: 32
+    pad: 2
+    kernel_size: 5
+    stride: 1
+    weight_filler {
+      type: "gaussian"
+      {% if finit and fprelu%}
+      # sqrt(2/(1+0.25^2) 5^2 32)
+      std: 0.048507125007266595
+      {% elif finit %}
+      # sqrt(2/ 5^2 32)
+      std: 0.05
+      {% else %}
+      std: 0.0001
+      {% endif %}
+    }
+  }
+}
+layer {
+  name: "pool1"
+  type: "Pooling"
+  bottom: "conv1"
+  top: "pool1"
+  pooling_param {
+    pool: MAX
+    kernel_size: 3
+    stride: 2
+  }
+}
+layer {
+  name: "relu1"
+  type: "{% if fprelu %}P{% endif %}ReLU"
+  bottom: "pool1"
+  top: "pool1"
+}
+layer {
+  name: "conv2"
+  type: "Convolution"
+  bottom: "pool1"
+  top: "conv2"
+  {% if not (fprelu or finit) %}
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  {% endif %}
+  convolution_param {
+    num_output: 32
+    pad: 2
+    kernel_size: 5
+    stride: 1
+    weight_filler {
+      type: "gaussian"
+      {% if finit and fprelu %}
+      # sqrt(2/(1+0.25^2) 5^2 32)
+      std: 0.048507125007266595
+      {% elif finit %}
+      # sqrt(2. / 5^2 32)
+      std: 0.05
+      {% else %}
+      std: 0.01
+      {% endif %}
+    }
+  }
+}
+layer {
+  name: "relu2"
+  type: "{% if fprelu %}P{% endif %}ReLU"
+  bottom: "conv2"
+  top: "conv2"
+}
+layer {
+  name: "pool2"
+  type: "Pooling"
+  bottom: "conv2"
+  top: "pool2"
+  pooling_param {
+    pool: AVE
+    kernel_size: 3
+    stride: 2
+  }
+}
+layer {
+  name: "conv3"
+  type: "Convolution"
+  bottom: "pool2"
+  top: "conv3"
+  {% if not (fprelu or finit) %}
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  {% endif %}
+  convolution_param {
+    num_output: 64
+    pad: 2
+    kernel_size: 5
+    stride: 1
+    weight_filler {
+      type: "gaussian"
+      {% if finit and fprelu %}
+      # sqrt(2/(1+a^2) 5^2 64) = 0.034299717028501764, here a = 0.25
+      std: 0.034299717028501764
+      {% elif finit %}
+      # sqrt(2/ 5^2 64)
+      std: 0.035355339
+      {% else %}
+      std: 0.01
+      {% endif %}
+    }
+  }
+}
+layer {
+  name: "relu3"
+  type: "{% if fprelu %}P{% endif %}ReLU"
+  bottom: "conv3"
+  top: "conv3"
+}
+layer {
+  name: "pool3"
+  type: "Pooling"
+  bottom: "conv3"
+  top: "pool3"
+  pooling_param {
+    pool: AVE
+    kernel_size: 3
+    stride: 2
+  }
+}
+layer {
+  name: "ip1"
+  type: "InnerProduct"
+  bottom: "pool3"
+  top: "ip1"
+  {% if not (fprelu or finit) %}
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  {% endif %}
+  inner_product_param {
+    num_output: 64
+    weight_filler {
+      type: "gaussian"
+      {% if finit %}
+      # Here we don't have (P)ReLU following.
+      # So init value should be sqrt(1./n) then 0.125
+      # std: 0.125
+      std: 0.01
+      {%else%}
+      std: 0.1
+      {%endif%}
+    }
+  }
+}
+layer {
+  name: "ip2"
+  type: "InnerProduct"
+  bottom: "ip1"
+  top: "ip2"
+  {% if not (fprelu or finit) %}
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  {% endif %}
+  inner_product_param {
+    num_output: 10
+    weight_filler {
+      type: "gaussian"
+      {% if finit %}
+      # Std can be anything but should be small enough not to satulate in
+      # softmax. If we want to have same variance in linear space
+      # We will have sqrt(1 / 10) = 0.31
+      # if the input is in U[-128,128] i.e. std=73, 
+      # you can cancel the effect of input scale by dividing 73
+      # ,then 0.31 / 73. = 0.00424
+      # std: 0.00424
+      std: 0.001
+      {%else%}
+      std: 0.1
+      {%endif%}
+    }
+  }
+}
+layer {
+  name: "accuracy"
+  type: "Accuracy"
+  bottom: "ip2"
+  bottom: "label"
+  top: "accuracy"
+  include: { phase: TEST }
+}
+layer {
+  name: "loss"
+  type: "SoftmaxWithLoss"
+  bottom: "ip2"
+  bottom: "label"
+  top: "loss"
+}

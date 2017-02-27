@@ -33,6 +33,8 @@ DEFINE_bool(shuffle, false,
     "Randomly shuffle the order of images and their labels");
 DEFINE_string(backend, "lmdb",
         "The backend {lmdb, leveldb} for storing the result");
+DEFINE_int32(seed, -1,
+    "Seed of random number generator");
 DEFINE_int32(resize_width, 0, "Width images are resized to");
 DEFINE_int32(resize_height, 0, "Height images are resized to");
 DEFINE_bool(check_size, false,
@@ -77,7 +79,13 @@ int main(int argc, char** argv) {
   if (FLAGS_shuffle) {
     // randomly shuffle data
     LOG(INFO) << "Shuffling data";
-    shuffle(lines.begin(), lines.end());
+    if (FLAGS_seed >= 0) {
+      shared_ptr<Caffe::RNG> rng(new Caffe::RNG(FLAGS_seed));
+      shuffle(lines.begin(), lines.end(),
+              static_cast<caffe::rng_t *>(rng->generator()));
+    } else {
+      shuffle(lines.begin(), lines.end());
+    }
   }
   LOG(INFO) << "A total of " << lines.size() << " images.";
 

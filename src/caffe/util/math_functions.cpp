@@ -254,6 +254,28 @@ void caffe_rng_uniform<double>(const int n, const double a, const double b,
                                double* r);
 
 template <typename Dtype>
+void caffe_rng_uniform_int(const int n, const int a,
+                           const int b, Dtype* r) {
+  CHECK_GE(n, 0);
+  CHECK(r);
+  CHECK_LE(a, b);
+  boost::uniform_int<int> random_distribution(a, b);
+  boost::variate_generator<caffe::rng_t*, boost::uniform_int<int> >
+      variate_generator(caffe_rng(), random_distribution);
+  for (int i = 0; i < n; ++i) {
+    r[i] = static_cast<Dtype>(variate_generator());
+  }
+}
+
+template
+void caffe_rng_uniform_int<float>(const int n, const int a, const int b,
+                              float* r);
+
+template
+void caffe_rng_uniform_int<double>(const int n, const int a, const int b,
+                               double* r);
+
+template <typename Dtype>
 void caffe_rng_gaussian(const int n, const Dtype a,
                         const Dtype sigma, Dtype* r) {
   CHECK_GE(n, 0);

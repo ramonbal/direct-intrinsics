@@ -80,7 +80,7 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
     height = crop_size;
     width = crop_size;
     // We only do random crop when we do training.
-    if (phase_ == TRAIN) {
+    if (phase_ == TRAIN && !param_.force_center_crop()) {
       h_off = Rand(datum_height - crop_size + 1);
       w_off = Rand(datum_width - crop_size + 1);
     } else {
@@ -247,7 +247,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
     CHECK_EQ(crop_size, height);
     CHECK_EQ(crop_size, width);
     // We only do random crop when we do training.
-    if (phase_ == TRAIN) {
+    if (phase_ == TRAIN && !param_.force_center_crop()) {
       h_off = Rand(img_height - crop_size + 1);
       w_off = Rand(img_width - crop_size + 1);
     } else {
@@ -325,7 +325,7 @@ void DataTransformer<Dtype>::Transform(Blob<Dtype>* input_blob,
     CHECK_EQ(crop_size, height);
     CHECK_EQ(crop_size, width);
     // We only do random crop when we do training.
-    if (phase_ == TRAIN) {
+    if (phase_ == TRAIN && !param_.force_center_crop()) {
       h_off = Rand(input_height - crop_size + 1);
       w_off = Rand(input_width - crop_size + 1);
     } else {

@@ -566,6 +566,57 @@ class MultinomialLogisticLossLayer : public LossLayer<Dtype> {
  *              \right]
  *        @f$, often used for predicting targets interpreted as probabilities.
  *
+ */
+template <typename Dtype>
+class RankSigmoidCrossEntropyLossLayer : public LossLayer<Dtype> {
+ public:
+  explicit RankSigmoidCrossEntropyLossLayer(const LayerParameter& param)
+      : LossLayer<Dtype>(param),
+          sigmoid_layer_(new SigmoidLayer<Dtype>(param)),
+          sigmoid_output_(new Blob<Dtype>()) {}
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+
+  virtual inline const char* type() const {
+    return "RankSigmoidCrossEntropyLoss";
+  }
+
+ protected:
+  /// @copydoc RankSigmoidCrossEntropyLossLayer
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+
+  /**
+   * @brief Computes the sigmoid cross-entropy loss error gradient w.r.t. the
+   *        predictions.
+   */
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+  /// The internal SigmoidLayer used to map predictions to probabilities.
+  shared_ptr<SigmoidLayer<Dtype> > sigmoid_layer_;
+  /// sigmoid_output stores the output of the SigmoidLayer.
+  shared_ptr<Blob<Dtype> > sigmoid_output_;
+  /// bottom vector holder to call the underlying SigmoidLayer::Forward
+  vector<Blob<Dtype>*> sigmoid_bottom_vec_;
+  /// top vector holder to call the underlying SigmoidLayer::Forward
+  vector<Blob<Dtype>*> sigmoid_top_vec_;
+};
+
+/**
+ * @brief Computes the cross-entropy (logistic) loss @f$
+ *          E = \frac{-1}{n} \sum\limits_{n=1}^N \left[
+ *                  p_n \log \hat{p}_n +
+ *                  (1 - p_n) \log(1 - \hat{p}_n)
+ *              \right]
+ *        @f$, often used for predicting targets interpreted as probabilities.
+ *
  * This layer is implemented rather than separate
  * SigmoidLayer + CrossEntropyLayer
  * as its gradient computation is more numerically stable.

@@ -1,6 +1,7 @@
 #include <cstdio>
 
 #include <algorithm>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -162,12 +163,13 @@ void Solver<Dtype>::InitTestNets() {
 }
 
 template <typename Dtype>
-void Solver<Dtype>::Step(int iters) {
+vector<Dtype> Solver<Dtype>::Step(int iters) {
   vector<Blob<Dtype>*> bottom_vec;
   const int start_iter = iter_;
   const int stop_iter = iter_ + iters;
   int average_loss = this->param_.average_loss();
   vector<Dtype> losses;
+  vector<Dtype> losses_vec;
   Dtype smoothed_loss = 0;
 
   for (; iter_ < stop_iter; ++iter_) {
@@ -197,12 +199,17 @@ void Solver<Dtype>::Step(int iters) {
 
     const bool display = param_.display() && iter_ % param_.display() == 0;
     net_->set_debug_info(display && param_.debug_info());
+//<<<<<<< HEAD
     // accumulate the loss and gradient
     Dtype loss = 0;
     for (int i = 0; i < param_.iter_size(); ++i) {
       loss += net_->ForwardBackward(bottom_vec);
     }
     loss /= param_.iter_size();
+/*=======
+    Dtype loss = net_->ForwardBackward(bottom_vec);
+    losses_vec.push_back(loss);
+>>>>>>> origin/future-misc*/
     // average the loss across iterations for smoothed reporting
     if (losses.size() < average_loss) {
       losses.push_back(loss);
@@ -243,6 +250,7 @@ void Solver<Dtype>::Step(int iters) {
       Snapshot();
     }
   }
+  return losses_vec;
 }
 
 template <typename Dtype>
@@ -441,6 +449,15 @@ Dtype SGDSolver<Dtype>::GetLearningRate() {
 }
 
 template <typename Dtype>
+void SGDSolver<Dtype>::SetLearningRate(Dtype lr) {
+    if (this->param_.lr_policy() != "fixed") {
+      throw std::runtime_error(
+        "ResetLearningRate can not be called when lr_policy != 'fixed'");
+    }
+    this->param_.set_base_lr(lr);
+}
+
+template <typename Dtype>
 void SGDSolver<Dtype>::PreSolve() {
   // Initialize the history
   const vector<shared_ptr<Blob<Dtype> > >& net_params = this->net_->params();
@@ -495,6 +512,9 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
   Dtype momentum = this->param_.momentum();
   Dtype weight_decay = this->param_.weight_decay();
   string regularization_type = this->param_.regularization_type();
+#ifndef CPU_ONLY
+    bool force_cpu_momentum = this->param_.force_cpu_momentum();
+#endif
   switch (Caffe::mode()) {
   case Caffe::CPU:
     for (int param_id = 0; param_id < net_params.size(); ++param_id) {
@@ -562,13 +582,23 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
         }
       }
 
-      caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
-                net_params[param_id]->gpu_diff(), momentum,
-                history_[param_id]->mutable_gpu_data());
-      // copy
-      caffe_copy(net_params[param_id]->count(),
+      if (force_cpu_momentum) {
+        // Momentum update in CPU. This doen't require GPU memory for momentum
+        // buffer.
+        caffe_cpu_axpby(net_params[param_id]->count(), local_rate,
+          net_params[param_id]->cpu_diff(), momentum,
+          history_[param_id]->mutable_cpu_data());
+        caffe_copy(net_params[param_id]->count(),
+          history_[param_id]->cpu_data(),
+          net_params[param_id]->mutable_gpu_diff());
+      } else {
+        caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
+          net_params[param_id]->gpu_diff(), momentum,
+          history_[param_id]->mutable_gpu_data());
+        caffe_copy(net_params[param_id]->count(),
           history_[param_id]->gpu_data(),
           net_params[param_id]->mutable_gpu_diff());
+      }
     }
 #else
     NO_GPU;
