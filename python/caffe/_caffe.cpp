@@ -42,6 +42,13 @@ void set_mode_gpu() { Caffe::set_mode(Caffe::GPU); }
 // Checking current mode.
 bool check_mode_cpu() { return Caffe::mode() == Caffe::CPU; }
 bool check_mode_gpu() { return Caffe::mode() == Caffe::GPU; }
+#ifndef CPU_ONLY
+// Cuda num threads
+int get_cuda_num_threads() { return CAFFE_CUDA_NUM_THREADS; }
+bp::object cublas_handle() {
+  return bp::object((size_t)Caffe::cublas_handle());
+}
+#endif
 
 // For convenience, check that input files can be opened, and raise an
 // exception that boost will send to Python if not (caffe could still crash
@@ -304,6 +311,16 @@ shared_ptr<Layer<Dtype> > create_layer(bp::object py_layer_param) {
   return LayerRegistry<Dtype>::CreateLayer(*layer_param.get());
 }
 
+#ifndef CPU_ONLY
+size_t Blob_GpuDataPtr(Blob<Dtype>* self) {
+  return (size_t)(self->mutable_gpu_data());
+}
+
+size_t Blob_GpuDiffPtr(Blob<Dtype>* self) {
+  return (size_t)(self->mutable_gpu_diff());
+}
+#endif
+
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(SolveOverloads, Solve, 0, 1);
 
 BOOST_PYTHON_MODULE(_caffe) {
@@ -317,6 +334,11 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::def("set_device", &Caffe::SetDevice);
   bp::def("get_device", &Caffe::GetDevice);
   bp::def("set_random_seed", &Caffe::set_random_seed);
+#ifndef CPU_ONLY
+  bp::def("get_cuda_num_threads", &get_cuda_num_threads);
+  bp::def("get_blocks", &CAFFE_GET_BLOCKS);
+  bp::def("cublas_handle", &cublas_handle);
+#endif
 
   bp::class_<Net<Dtype>, shared_ptr<Net<Dtype> >, boost::noncopyable >("Net",
     bp::no_init)
@@ -357,6 +379,10 @@ BOOST_PYTHON_MODULE(_caffe) {
         &Blob<Dtype>::count))
     .add_property("shape", &Blob_Shape)
     .def("reshape",           bp::raw_function(&Blob_Reshape))
+#ifndef CPU_ONLY
+    .add_property("gpu_data_ptr", &Blob_GpuDataPtr)
+    .add_property("gpu_diff_ptr", &Blob_GpuDiffPtr)
+#endif
     .add_property("data",     bp::make_function(&Blob<Dtype>::mutable_cpu_data,
           NdarrayCallPolicies()))
     .add_property("diff",     bp::make_function(&Blob<Dtype>::mutable_cpu_diff,

@@ -5,9 +5,12 @@ from ._caffe import (
     check_mode_cpu, check_mode_gpu,
     set_random_seed,
     Blob,
-    create_layer,
-)
+    create_layer)
 from .proto.caffe_pb2 import TRAIN, TEST
 from .classifier import Classifier
 from .detector import Detector
 import io
+try:
+	from ._caffe import get_cuda_num_threads, get_blocks, cublas_handle
+except ImportError:
+	pass

@@ -1,0 +1,5 @@
+running:origin/accum-grad
+running:origin/share-blobs-over-nets
+running:origin/pythonlayer-parameter
+running:origin/python-gradient-checker-accum
+running:origin/python-gpu
