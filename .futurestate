@@ -1,9 +1,0 @@
-running:origin/accum-grad
-running:origin/share-blobs-over-nets
-running:origin/pythonlayer-parameter
-running:origin/python-gradient-checker-accum
-running:origin/python-gpu
-running:origin/python-gil
-running:origin/fix-autotop-python
-running:origin/bilinear-upsampling-filler
-running:origin/future-misc
