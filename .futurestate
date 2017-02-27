@@ -3,3 +3,5 @@ running:origin/share-blobs-over-nets
 running:origin/pythonlayer-parameter
 running:origin/python-gradient-checker-accum
 running:origin/python-gpu
+running:origin/python-gil
+running:origin/fix-autotop-python
